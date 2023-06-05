@@ -1,0 +1,38 @@
+#!/sbin/nft -f
+
+flush ruleset
+
+table inet dualstack {
+	chain input {
+		type filter hook input priority filter; policy drop;
+		jump common_accept
+		jump common_reject
+	}
+
+	chain forward {
+		type filter hook forward priority filter; policy drop;
+		jump common_accept
+		jump common_reject
+	}
+
+	chain output {
+		type filter hook output priority filter; policy accept;
+	}
+
+	chain common_accept {
+		iif "lo" accept comment "Accept incoming localhost traffic"
+		oif "lo" accept comment "Accept outgoing localhost traffic"
+
+		icmp type echo-request ct state new accept
+		meta l4proto ipv6-icmp accept
+
+		ct state invalid drop comment "Drop invalid connections"
+		ct state established,related accept comment "Accept existing traffic"
+	}
+
+	chain common_reject {
+		meta l4proto udp reject
+		meta l4proto tcp reject with tcp reset
+		reject
+	}
+}
